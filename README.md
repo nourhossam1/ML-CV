@@ -9,7 +9,7 @@
 [![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-00FFFF.svg)](https://github.com/ultralytics/ultralytics)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-[Features](#-features) • [Demo](#-demo) • [Installation](#-installation) • [Usage](#-usage) • [Mobile Support](#-mobile-support) • [Project Structure](#-project-structure)
+[Features](#-features) • [Demo](#-demo) • [Installation](#-installation) • [Usage](#-usage) • [Project Structure](#-project-structure)
 
 </div>
 
@@ -20,22 +20,21 @@
 - 🖼️ **Image Detection** - Upload and analyze images with bounding boxes and confidence scores
 - 🎥 **Video Processing** - Detect objects in video files frame-by-frame
 - 📷 **Live Webcam** - Real-time object detection from your camera
-- 📱 **Mobile Support** - Use your phone's camera for detection (see [Mobile Guide](MOBILE_GUIDE.md))
-- 🎯 **Custom Training** - Train your own models for specific object classes
-- 🎨 **Interactive Dashboard** - Beautiful Streamlit UI for easy interaction
-- 🏺 **Archaeology Mode** - Custom model for artifact classification (Stone, Glass, Plastic, etc.)
-- 📊 **Detection Statistics** - Real-time object counts and confidence metrics
+- 📱 **Mobile Friendly** - Use the "Browser Camera" mode on Streamlit Cloud to detect from your phone!
+- 🏺 **Archaeology Ready** - Integrated support for custom artifact models
+- 📊 **Detection Statistics** - Real-time object counts and metrics
+- ⚙️ **Hardware Control** - Control sieve motors and read load-cell weights via Firebase
 
-**Supported Objects:** 80 classes from COCO dataset including people, pets, furniture, electronics, vehicles, and more!
+**Supported Objects:** 80 classes from COCO dataset including people, electronics, vehicles, and more!
 
 ---
 
 ## 🎬 Demo
 
-> **Note:** Add screenshots or GIFs of your application in action here for better visual appeal!
+> **Note:** Run the app to see real-time detections with bounding boxes!
 
 ```bash
-# Quick start - see your webcam detection in action!
+# Quick start
 python -m streamlit run app.py
 ```
 
@@ -51,8 +50,8 @@ python -m streamlit run app.py
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/object_detection_project.git
-   cd object_detection_project
+   git clone https://github.com/3assem0/ML-CV.git
+   cd ML-CV
    ```
 
 2. **Install dependencies**
@@ -65,7 +64,7 @@ python -m streamlit run app.py
    python -m streamlit run app.py
    ```
 
-The app will automatically download the required YOLOv8 model weights on first run.
+The app will automatically download required YOLOv8 weights on first run.
 
 ---
 
@@ -73,153 +72,80 @@ The app will automatically download the required YOLOv8 model weights on first r
 
 ### Streamlit Dashboard (Recommended)
 
-Launch the interactive web interface:
-
 ```bash
 python -m streamlit run app.py
 ```
 
-Then open your browser to `http://localhost:8501`
+Then open `http://localhost:8501`
 
 #### Dashboard Overview
 
 **📊 Sidebar Controls:**
-- **Detection Mode:** Switch between General (COCO) and Archaeology (Custom)
-- **Model Size:** Choose from `yolov8n` (fastest), `yolov8s`, or `yolov8m` (most accurate)
+- **Model Size:** Automatically uses `yolov8n` for speed on cloud.
 - **Confidence Threshold:** Adjust detection sensitivity (0.0 - 1.0)
+- **Firebase Status:** Check connection to your hardware backend.
 
 **📑 Tabs:**
 
-1. **🖼️ Image/Video Upload**
-   - Upload images (JPG, PNG, BMP) or videos (MP4, AVI, MOV)
-   - View side-by-side comparison with detections
-   - Get detailed object counts and statistics
+1. **⚙️ Hardware Control**
+   - Toggle DC Motors and Vibration system.
+   - Read live weights from Load Cells (Areas 1-3).
 
-2. **📷 Live Webcam**
-   - **Desktop Mode:** CV2 Webcam for continuous streaming
-   - **Mobile Mode:** Browser Camera for snapshot detection (perfect for phones!)
+2. **🖼️ Image/Video Upload**
+   - Upload images (JPG, PNG) or videos (MP4).
+   - View detections and side-by-side results.
 
-3. **🏺 Data Collection**
-   - Capture training images for custom models
-   - Label your own object classes
-   - Train custom YOLOv8 models directly from the UI
+3. **📷 Live Camera**
+   - **CV2 Webcam:** For local PC usage (uses desktop camera).
+   - **Browser Camera:** For Mobile/Cloud usage (uses browser snapshot).
 
 ### Command Line Scripts
 
-#### Webcam Detection
-For low-latency, OpenCV-based webcam detection:
-```bash
-python src/webcam.py
-```
-Press `q` to quit.
-
-#### Image Detection
-Process a single image:
-```bash
-python src/image_detect.py
-```
-*Note: Edit the script to specify your image path*
-
----
-
-## 📱 Mobile Support
-
-You can use this app on your smartphone or tablet! See the detailed [Mobile Guide](MOBILE_GUIDE.md) for:
-
-- **Local Network Access** - Connect via Wi-Fi to your computer
-- **Streamlit Cloud Deployment** - Host your app online for anywhere access
-- **Mobile Camera Input** - Use your phone's camera for detection
-
-**Quick Mobile Setup:**
-1. Run `python -m streamlit run app.py` on your computer
-2. Note the **Network URL** (e.g., `http://192.168.1.3:8501`)
-3. Open that URL on your phone's browser
-4. Go to "Live Webcam" → "Browser Camera (Mobile/Tablet)"
+- **Webcam:** `python src/webcam.py`
+- **Image:** `python src/image_detect.py --image path/to/img.jpg`
+- **Train:** `python src/train.py` (Local only)
 
 ---
 
 ## 🏗️ Project Structure
 
 ```
-object_detection_project/
-├── app.py                      # Streamlit dashboard (main entry point)
+ML-CV/
+├── app.py                      # Main Streamlit dashboard
 ├── requirements.txt            # Python dependencies
-├── data.yaml                   # Dataset configuration for training
-├── MOBILE_GUIDE.md            # Mobile usage instructions
+├── packages.txt                # System dependencies (for Cloud)
+├── data.yaml                   # Dataset config
 ├── README.md                   # This file
 │
 ├── src/
-│   ├── detector.py            # YOLOv8 inference wrapper
-│   ├── utils.py               # Drawing and visualization utilities
-│   ├── webcam.py              # OpenCV webcam script
-│   ├── image_detect.py        # Single image detection script
-│   └── train.py               # Custom model training script
+│   ├── detector.py            # YOLO instance wrapper
+│   ├── utils.py               # Drawing & stats helpers
+│   ├── webcam.py              # CLI webcam script
+│   ├── image_detect.py        # CLI image script
+│   └── train.py               # Local training script
 │
 ├── data/
-│   └── raw/                   # Training images organized by class
-│       ├── artifact/
-│       ├── stone/
-│       ├── glass/
-│       └── plastic/
+│   └── raw/                   # Collection folder for images
 │
-├── models/                     # Trained model weights
-│   └── custom_archaeology.pt  # Your custom trained model (after training)
+├── models/                     # Custom weights (custom.pt)
 │
-└── runs/                       # Training outputs and logs
+└── esp32_firmware/            # Arduino code for hardware
 ```
-
----
-
-## 🎓 Training Custom Models
-
-1. **Collect Data:**
-   - Use the "Data Collection" tab in the dashboard
-   - Capture at least 10-20 images per class
-   - Images are saved to `data/raw/{class_name}/`
-
-2. **Train:**
-   - Click "Start Training Custom Model" in the dashboard
-   - Or run manually: `python src/train.py`
-   - Training takes 5-15 minutes depending on your hardware
-
-3. **Use Your Model:**
-   - Switch to "Archaeology (Custom)" mode in the sidebar
-   - Your model is saved to `models/custom_archaeology.pt`
 
 ---
 
 ## 🛠️ Technologies Used
 
-- **[YOLOv8](https://github.com/ultralytics/ultralytics)** - State-of-the-art object detection
-- **[Streamlit](https://streamlit.io/)** - Interactive web dashboard
-- **[OpenCV](https://opencv.org/)** - Computer vision and image processing
-- **[PyTorch](https://pytorch.org/)** - Deep learning framework
-- **[Pillow](https://python-pillow.org/)** - Image manipulation
+- **[YOLOv8](https://github.com/ultralytics/ultralytics)** - State-of-the-art detection
+- **[Streamlit](https://streamlit.io/)** - Web UI
+- **[Firebase](https://firebase.google.com/)** - Real-time database for hardware
+- **[OpenCV](https://opencv.org/)** - Computer Vision
 
 ---
 
 ## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
----
-
-## 📧 Contact
-
-For questions or suggestions, please open an issue on GitHub.
-
----
+MIT License.
 
 <div align="center">
-
 **Made with ❤️ using YOLOv8 and Streamlit**
-
-⭐ Star this repo if you find it useful!
-
 </div>

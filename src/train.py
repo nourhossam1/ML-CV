@@ -76,7 +76,7 @@ def train_custom_model(epochs=5):
         if runs:
             latest_run = runs[-1]
             src = f"{latest_run}/weights/best.pt"
-            dst = "models/custom_archaeology.pt"
+            dst = "models/custom.pt"
             shutil.copy(src, dst)
             print(f"Model saved to {dst}")
     except Exception as e:

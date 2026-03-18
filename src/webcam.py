@@ -1,8 +1,11 @@
 import cv2
 import time
 import argparse
-from detector import ObjectDetector
-from utils import draw_detections, get_random_colors, count_objects
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from src.detector import ObjectDetector
+from src.utils import draw_detections, get_random_colors, count_objects
 
 def main():
     parser = argparse.ArgumentParser(description="Object Detection on Webcam")

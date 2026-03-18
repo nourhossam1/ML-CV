@@ -3,7 +3,6 @@ import cv2
 import numpy as np
 from PIL import Image
 import tempfile
-import glob
 import os
 import sys
 import datetime
@@ -19,16 +18,9 @@ from src.utils import draw_detections, get_random_colors, count_objects
 
 # ── Constants ──────────────────────────────────────────────────────────────
 DATA_DIR     = os.path.join("data", "raw")
-CUSTOM_MODEL = os.path.join("models", "custom.pt")       # unified trained model
-FALLBACK_MODEL = "yolov8n.pt"                                      # standard YOLOv8 nano (cloud-safe, no CLIP needed)
+CUSTOM_MODEL = os.path.join("models", "custom.pt")
+FALLBACK_MODEL = "yolov8n.pt"                        # standard YOLOv8 nano (cloud-safe, no CLIP needed)
 FIREBASE_URL = "https://archologestdb-default-rtdb.firebaseio.com/"
-
-# Classes for data-collection tab
-ARCH_CLASSES = ["Artifact", "Stone", "Glass", "Plastic"]
-
-# Ensure raw data dirs exist
-for cls in ARCH_CLASSES:
-    os.makedirs(os.path.join(DATA_DIR, cls.lower()), exist_ok=True)
 
 # ── Page Config ────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -38,6 +30,7 @@ st.set_page_config(
 )
 
 # ── Firebase ───────────────────────────────────────────────────────────────
+_firebase_ok = False
 if not firebase_admin._apps:
     try:
         cred = None
@@ -50,22 +43,26 @@ if not firebase_admin._apps:
             key_path = os.path.join(os.path.dirname(__file__), "firebase_key.json")
             if os.path.exists(key_path):
                 cred = credentials.Certificate(key_path)
-            else:
-                st.warning("⚠️ No Firebase credentials found. Hardware features may not work.")
         if cred:
             firebase_admin.initialize_app(cred, {"databaseURL": FIREBASE_URL})
-            st.success("✅ Connected to Firebase")
+            _firebase_ok = True
     except Exception as e:
         st.error(f"Firebase error: {e}")
+else:
+    _firebase_ok = True
 
 # ── Title ──────────────────────────────────────────────────────────────────
 st.title("🏺 Smart Archaeological Sieve & Detector")
 st.markdown("### Detect artifacts, materials, and bone fractures — all in one unified model.")
 
+if _firebase_ok:
+    st.sidebar.success("✅ Connected to Firebase")
+else:
+    st.sidebar.warning("⚠️ No Firebase credentials found. Hardware features disabled.")
+
 # ── Sidebar ────────────────────────────────────────────────────────────────
 st.sidebar.header("⚙️ Model Settings")
 
-# Single model — show status
 if os.path.exists(CUSTOM_MODEL):
     st.sidebar.success(f"✅ Custom model ready\n`{CUSTOM_MODEL}`")
     model_path = CUSTOM_MODEL
@@ -73,32 +70,24 @@ else:
     st.sidebar.warning(
         "Custom model not trained yet.\n"
         "Using general YOLOv8 until you train.\n\n"
-        "Go to **🧠 Train Model** tab to train."
+        "Run `python src/train.py` locally to train your own weights."
     )
     model_path = FALLBACK_MODEL
 
 conf_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.30, 0.05)
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("🌍 YOLO-World Classes")
-st.sidebar.info("Type exactly what you want to detect (comma-separated).")
-custom_classes_input = st.sidebar.text_area(
-    "Detect these objects:", 
-    value="stone, rock, pebble, gravel, bone, animal bone, skeleton, skull, fossil, plastic, plastic bottle, plastic bag, plastic container, glass, glass bottle, broken glass, glass shard, sand, dirt, soil, human, person, face, hand, phone, smartphone, cell phone, chair, seat, stool, bench, wood, log, stick, branch, timber, bottle, water bottle",
-    height=100
-)
-custom_classes_list = [c.strip().lower() for c in custom_classes_input.split(",") if c.strip()]
-
 # ── Firebase Helpers ───────────────────────────────────────────────────────
 def toggle_motor(motor_name, state):
+    if not _firebase_ok:
+        return
     try:
         db.reference(f"/controls/{motor_name}").set(state)
-        return True
     except Exception as e:
         st.error(f"Failed to update {motor_name}: {e}")
-        return False
 
 def get_weight(area_name):
+    if not _firebase_ok:
+        return None
     try:
         val = db.reference(f"/weights/{area_name}").get()
         return val if val is not None else 0.0
@@ -119,20 +108,30 @@ detector = load_detector(model_path)
 if not detector:
     st.stop()
 
-# Update classes dynamically for YOLO-World (fails gracefully on Python 3.13 / cloud)
-if hasattr(detector, 'set_classes'):
+# Update classes for YOLO-World if available (graceful fallback for Python 3.13 / cloud)
+if hasattr(detector, 'set_classes') and detector.is_world_model:
     try:
-        detector.set_classes(custom_classes_list)
+        yolo_world_classes = [
+            "stone", "rock", "pebble", "gravel",
+            "bone", "animal bone", "skeleton", "skull", "fossil",
+            "plastic", "plastic bottle", "plastic bag",
+            "glass", "glass bottle", "broken glass",
+            "sand", "dirt", "soil",
+            "human", "person", "face", "hand",
+            "phone", "smartphone",
+            "chair", "seat", "bench",
+            "wood", "log", "stick", "branch",
+            "bottle", "water bottle"
+        ]
+        detector.set_classes(yolo_world_classes)
     except Exception as e:
-        st.sidebar.warning(
-            f"⚠️ Custom class labels unavailable on this server (CLIP incompatibility).\n"
-            f"Running with default YOLO classes.\n`{type(e).__name__}`"
-        )
+        st.sidebar.warning(f"⚠️ YOLO-World class labels unavailable: `{type(e).__name__}`")
 
 colors = get_random_colors(len(detector.class_names))
 
 # ── Save Image Helper ──────────────────────────────────────────────────────
 def save_image(image, label):
+    os.makedirs(os.path.join(DATA_DIR, label.lower()), exist_ok=True)
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     path = os.path.join(DATA_DIR, label.lower(), f"{label}_{ts}.jpg")
     image.save(path)
@@ -170,9 +169,12 @@ with tab1:
         st.button("🔄 Refresh")
         c1, c2, c3 = st.columns(3)
         w1, w2, w3 = get_weight("area1"), get_weight("area2"), get_weight("area3")
-        c1.metric("Area 1", f"{w1} g" if w1 is not None else "Err")
-        c2.metric("Area 2", f"{w2} g" if w2 is not None else "Err")
-        c3.metric("Area 3", f"{w3} g" if w3 is not None else "Err")
+        c1.metric("Area 1", f"{w1} g" if w1 is not None else "N/A")
+        c2.metric("Area 2", f"{w2} g" if w2 is not None else "N/A")
+        c3.metric("Area 3", f"{w3} g" if w3 is not None else "N/A")
+
+    if not _firebase_ok:
+        st.info("ℹ️ Hardware control requires Firebase credentials to be configured in Streamlit secrets.")
 
 # ══════════════════════════════════════════════════════════════════════════
 # TAB 2 – Image / Video Upload
@@ -188,7 +190,7 @@ with tab2:
             image_np = np.array(image)
             col1, col2 = st.columns(2)
             with col1:
-                st.image(image, caption="Original", use_column_width=True)
+                st.image(image, caption="Original", use_container_width=True)
 
             load_area = st.selectbox("Load Cell Area", ["None", "Area 1", "Area 2", "Area 3"], key="img_area")
 
@@ -206,7 +208,7 @@ with tab2:
 
                     counts, total = count_objects(detections)
                     with col2:
-                        st.image(annotated_rgb, caption="Detections", use_column_width=True)
+                        st.image(annotated_rgb, caption="Detections", use_container_width=True)
 
                     if weight is not None:
                         cat = "Light" if weight < 500 else ("Medium" if weight < 2000 else "Heavy")
@@ -219,8 +221,9 @@ with tab2:
     else:  # Video
         uploaded_video = st.file_uploader("Upload a Video", type=["mp4", "avi", "mov"])
         if uploaded_video:
-            tfile = tempfile.NamedTemporaryFile(delete=False)
+            tfile = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
             tfile.write(uploaded_video.read())
+            tfile.flush()
             cap = cv2.VideoCapture(tfile.name)
             frm_holder = st.empty()
             stats_holder = st.empty()
@@ -256,9 +259,16 @@ with tab3:
         frm_holder = st.empty()
         stats_holder = st.empty()
         if run_cam:
-            cap = cv2.VideoCapture(int(cam_idx))
+            # Try to open with DSHOW on Windows for better compatibility if index 0/1, else standard
+            if os.name == 'nt' and cam_idx < 2:
+                cap = cv2.VideoCapture(int(cam_idx), cv2.CAP_DSHOW)
+            else:
+                cap = cv2.VideoCapture(int(cam_idx))
+                
             if not cap.isOpened():
                 st.error("❌ Could not open camera.")
+                st.info("💡 **On Streamlit Cloud?** Standard webcams won't work — use 'Browser Camera' instead.")
+                st.info("💡 **Running locally?** Check if another app is using the camera or try changing the Index.")
             else:
                 stop_btn = st.button("⏹️ Stop Stream")
                 fc = 0
@@ -268,7 +278,7 @@ with tab3:
                         break
                     detections, _ = detector.detect(frame, conf_threshold)
                     annotated = draw_detections(frame, detections, colors)
-                    frm_holder.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_column_width=True)
+                    frm_holder.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_container_width=True)
                     counts, total = count_objects(detections)
                     fc += 1
                     stats_holder.metric("Objects Detected", total, delta=f"Frame {fc}")
@@ -285,7 +295,7 @@ with tab3:
             image_np = np.array(image)
             col1, col2 = st.columns(2)
             with col1:
-                st.image(image, caption="Captured Photo", use_column_width=True)
+                st.image(image, caption="Captured Photo", use_container_width=True)
 
             with st.spinner("🔍 Detecting…"):
                 frame = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
@@ -301,7 +311,7 @@ with tab3:
                 counts, total = count_objects(detections)
 
             with col2:
-                st.image(annotated_rgb, caption="Detections", use_column_width=True)
+                st.image(annotated_rgb, caption="Detections", use_container_width=True)
 
             if weight is not None:
                 cat = "Light" if weight < 500 else ("Medium" if weight < 2000 else "Heavy")
@@ -316,5 +326,3 @@ with tab3:
                     cols[i % 4].metric(name, cnt)
             else:
                 st.info("No objects detected. Try lowering the confidence threshold.")
-
-
