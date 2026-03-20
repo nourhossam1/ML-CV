@@ -1,9 +1,8 @@
-from ultralytics import YOLO
+from ultralytics import YOLO # type: ignore
 import os
 import shutil
 import glob
 import random
-import yaml
 
 def prepare_dataset(raw_dir="data/raw", split_ratio=0.8):
     """
@@ -48,8 +47,8 @@ def prepare_dataset(raw_dir="data/raw", split_ratio=0.8):
         random.shuffle(files)
         
         split_idx = int(len(files) * split_ratio)
-        train_files = files[:split_idx]
-        val_files = files[split_idx:]
+        train_files = files[:split_idx] # type: ignore
+        val_files = files[split_idx:] # type: ignore
         
         for f in train_files:
             shutil.copy(f, f"{base_dir}/train/{cls}/{os.path.basename(f)}")
@@ -76,7 +75,7 @@ def train_custom_model(epochs=5):
         if runs:
             latest_run = runs[-1]
             src = f"{latest_run}/weights/best.pt"
-            dst = "models/custom.pt"
+            dst = "models/custom_archaeology.pt"
             shutil.copy(src, dst)
             print(f"Model saved to {dst}")
     except Exception as e:

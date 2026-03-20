@@ -1,10 +1,13 @@
-import cv2
+import cv2 # type: ignore
 import argparse
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from src.detector import ObjectDetector
-from src.utils import draw_detections, get_random_colors, count_objects
+
+# Ensure project root is in path so absolute imports work
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from src.detector import ObjectDetector # type: ignore
+from src.utils import draw_detections, get_random_colors, count_objects # type: ignore
 
 def main():
     parser = argparse.ArgumentParser(description="Object Detection on Image")

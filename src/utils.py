@@ -1,8 +1,9 @@
-import cv2
+import cv2 # type: ignore
 import random
-import numpy as np
+import numpy as np # type: ignore
+from typing import List, Dict, Any, Tuple
 
-def get_random_colors(num_classes):
+def get_random_colors(num_classes: int) -> List[Tuple[int, int, int]]:
     """
     Generate random colors for each class.
     """
@@ -13,7 +14,7 @@ def get_random_colors(num_classes):
         colors.append(c)
     return colors
 
-def draw_detections(frame, detections, colors):
+def draw_detections(frame, detections, colors, draw_labels=True):
     """
     Draw bounding boxes and labels on the frame.
     detections: list of dicts with 'box', 'conf', 'class_id', 'class_name'
@@ -33,16 +34,17 @@ def draw_detections(frame, detections, colors):
         # Draw box
         cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
         
-        # Label
-        label = f"{cls_name} {conf:.2f}"
-        (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        cv2.rectangle(annotated_frame, (x1, y1 - 20), (x1 + w, y1), color, -1)
-        cv2.putText(annotated_frame, label, (x1, y1 - 5), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        if draw_labels:
+            # Label
+            label = f"{cls_name} {conf:.2f}"
+            (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            cv2.rectangle(annotated_frame, (x1, y1 - 20), (x1 + w, y1), color, -1)
+            cv2.putText(annotated_frame, label, (x1, y1 - 5), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                     
     return annotated_frame
 
-def count_objects(detections):
+def count_objects(detections: List[Dict[str, Any]]) -> Tuple[Dict[str, int], int]:
     """
     Count objects per class.
     Returns: dict {class_name: count}, total_count
