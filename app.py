@@ -22,7 +22,7 @@ from src.vlm import analyze_image_with_vlm
 DATA_DIR     = os.path.join("data", "raw")
 CUSTOM_MODEL = os.path.join("models", "custom.pt")       # unified trained model
 FALLBACK_MODEL = "yolov8x-worldv2.pt"                             # YOLO-World open-vocabulary model
-FIREBASE_URL = "https://archologestdb-default-rtdb.firebaseio.com/"
+FIREBASE_URL = "https://cv-ml-4b693-default-rtdb.firebaseio.com"
 
 # Classes for data-collection tab
 ARCH_CLASSES = ["Artifact", "Stone", "Glass", "Plastic"]
