@@ -38,11 +38,12 @@ def analyze_image_with_vlm(image_bgr, api_key, model="nvidia/nemotron-nano-12b-v
         
     # Convert to base64 string
     base64_image = base64.b64encode(buffer).decode('utf-8')
+    api_key = api_key.strip()
     
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://archaeology-sieve.com", # Required by OpenRouter
+        "HTTP-Referer": "https://cv-ml-ob.streamlit.app", # Updated to your actual app URL
         "X-Title": "Archaeology Sieve"
     }
     
