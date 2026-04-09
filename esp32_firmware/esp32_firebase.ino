@@ -14,10 +14,10 @@
 #define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
 
 // Insert Firebase project API Key
-#define API_KEY "YOUR_FIREBASE_WEB_API_KEY"
+#define API_KEY "AIzaSyC0oZR5teyYHUgzXvC7Iy0ZWUru9kpFlv4"
 
 // Insert RTDB URL (e.g. https://archologestdb-default-rtdb.firebaseio.com/)
-#define DATABASE_URL "https://archologestdb-default-rtdb.firebaseio.com/" 
+#define DATABASE_URL "https://cv-ml-4b693-default-rtdb.firebaseio.com" 
 
 // Define Firebase Data objects
 FirebaseData fbdo;
