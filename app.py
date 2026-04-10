@@ -66,16 +66,11 @@ st.markdown("### Detect artifacts, materials, and bone fractures — all in one 
 # ── Sidebar ────────────────────────────────────────────────────────────────
 st.sidebar.header("⚙️ Model Settings")
 
-# Single model — show status
+# Model Selection
 if os.path.exists(CUSTOM_MODEL):
-    st.sidebar.success(f"✅ Custom model ready\n`{CUSTOM_MODEL}`")
+    st.sidebar.success(f"✅ Custom model ready")
     model_path = CUSTOM_MODEL
 else:
-    st.sidebar.warning(
-        "Custom model not trained yet.\n"
-        "Using general YOLOv8 until you train.\n\n"
-        "Go to **🧠 Train Model** tab to train."
-    )
     model_path = FALLBACK_MODEL
 
 conf_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.30, 0.05)
