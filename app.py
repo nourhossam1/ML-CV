@@ -10,6 +10,9 @@ import datetime
 import firebase_admin # type: ignore
 from firebase_admin import credentials # type: ignore
 from firebase_admin import db # type: ignore
+import threading
+import av # type: ignore
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration # type: ignore
 
 # Ensure src is in python path
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
@@ -66,16 +69,11 @@ st.markdown("### Detect artifacts, materials, and bone fractures — all in one 
 # ── Sidebar ────────────────────────────────────────────────────────────────
 st.sidebar.header("⚙️ Model Settings")
 
-# Single model — show status
+# Model Selection
 if os.path.exists(CUSTOM_MODEL):
-    st.sidebar.success(f"✅ Custom model ready\n`{CUSTOM_MODEL}`")
+    st.sidebar.success(f"✅ Custom model ready")
     model_path = CUSTOM_MODEL
 else:
-    st.sidebar.warning(
-        "Custom model not trained yet.\n"
-        "Using general YOLOv8 until you train.\n\n"
-        "Go to **🧠 Train Model** tab to train."
-    )
     model_path = FALLBACK_MODEL
 
 conf_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.30, 0.05)
@@ -138,6 +136,33 @@ if hasattr(detector, 'set_classes'):
     detector.set_classes(custom_classes_list)
 
 colors = get_random_colors(len(detector.class_names))
+
+# ── WebRTC Processor ────────────────────────────────────────────────────────
+RTC_CONFIG = RTCConfiguration(
+    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+)
+
+class VideoProcessor(VideoProcessorBase):
+    def __init__(self, detector, colors):
+        self.detector = detector
+        self.colors = colors
+        self.conf_threshold = 0.3
+        self.enable_vlm = False
+        self._lock = threading.Lock()
+
+    def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
+        img = frame.to_ndarray(format="bgr24")
+        
+        with self._lock:
+            conf = self.conf_threshold
+            vlm_on = self.enable_vlm
+
+        # Detection logic
+        detections, _ = self.detector.detect(img, conf)
+        # Draw on frame (labels only if not doing deep analysis overlay)
+        annotated = draw_detections(img, detections, self.colors, draw_labels=not vlm_on)
+        
+        return av.VideoFrame.from_ndarray(annotated, format="bgr24")
 
 # ── Save Image Helper ──────────────────────────────────────────────────────
 def save_image(image, label):
@@ -297,8 +322,26 @@ with tab3:
                 st.success("✅ Stream stopped")
 
     else:  # Browser Camera
-        st.markdown("**📸 Snap a photo — works on mobile, tablet, and cloud.**")
-        cam_img = st.camera_input("Take Photo")
+        st.markdown("**📸 Real-Time YOLO Detection — works on mobile and cloud.**")
+        
+        # WebRTC Streamer
+        ctx = webrtc_streamer(
+            key="yolo-live",
+            video_processor_factory=lambda: VideoProcessor(detector, colors),
+            rtc_configuration=RTC_CONFIG,
+            media_stream_constraints={"video": True, "audio": False},
+        )
+        
+        # Sync settings to the processor thread
+        if ctx.video_processor:
+            with ctx.video_processor._lock:
+                ctx.video_processor.conf_threshold = conf_threshold
+                ctx.video_processor.enable_vlm = enable_vlm
+                ctx.video_processor.colors = colors  # Keep colors in sync with class names
+
+        st.info("💡 Detection happens live in the stream above. Capture a photo below for Deep Analysis (Gemma-3).")
+        
+        cam_img = st.camera_input("Take Snapshot for VLM / Records")
         load_area = st.selectbox("Load Cell Area", ["None", "Area 1", "Area 2", "Area 3"], key="cam_area")
 
         if cam_img:
