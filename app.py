@@ -76,6 +76,19 @@ if os.path.exists(CUSTOM_MODEL):
 else:
     model_path = FALLBACK_MODEL
 
+live_performance = st.sidebar.select_slider(
+    "Live Performance Mode",
+    options=["Maximum Precision", "Balanced", "Fastest (Recommended)"],
+    value="Fastest (Recommended)",
+    help="Reduces AI load for a smoother live stream. High precision is still used for snapshots."
+)
+# Select model based on mode
+live_model_path = "yolov8s-worldv2.pt" if live_performance != "Maximum Precision" else FALLBACK_MODEL
+# Skip factor
+skip_factor = 3 if live_performance == "Fastest (Recommended)" else (2 if live_performance == "Balanced" else 1)
+# Internal Resize
+internal_width = 320 if live_performance == "Fastest (Recommended)" else (480 if live_performance == "Balanced" else 640)
+
 conf_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.30, 0.05)
 
 st.sidebar.markdown("---")
@@ -128,12 +141,15 @@ def load_detector(path):
         return None
 
 detector = load_detector(model_path)
+live_detector = load_detector(live_model_path) if live_model_path != model_path else detector
+
 if not detector:
     st.stop()
 
-# Update classes dynamically for YOLO-World
-if hasattr(detector, 'set_classes'):
-    detector.set_classes(custom_classes_list)
+# Update classes dynamically for both
+for det in set([detector, live_detector]):
+    if hasattr(det, 'set_classes'):
+        det.set_classes(custom_classes_list)
 
 colors = get_random_colors(len(detector.class_names))
 
@@ -148,19 +164,47 @@ class VideoProcessor(VideoProcessorBase):
         self.colors = colors
         self.conf_threshold = 0.3
         self.enable_vlm = False
+        self.skip_factor = 3
+        self.internal_width = 320
+        self._frame_count = 0
+        self._last_detections = []
         self._lock = threading.Lock()
 
     def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
         img = frame.to_ndarray(format="bgr24")
+        h, w = img.shape[:2]
         
         with self._lock:
             conf = self.conf_threshold
             vlm_on = self.enable_vlm
+            skip = self.skip_factor
+            target_w = self.internal_width
+            detector = self.detector # Current detector (might be fast or precise)
 
-        # Detection logic
-        detections, _ = self.detector.detect(img, conf)
-        # Draw on frame (labels only if not doing deep analysis overlay)
-        annotated = draw_detections(img, detections, self.colors, draw_labels=not vlm_on)
+        # Frame skipping logic
+        self._frame_count += 1
+        if self._frame_count % skip == 0:
+            # Resize for AI speedup
+            scale = target_w / w
+            target_h = int(h * scale)
+            small_img = cv2.resize(img, (target_w, target_h))
+            
+            # Detect on small image
+            raw_detections, _ = detector.detect(small_img, conf)
+            
+            # Map detections back to original size
+            self._last_detections = []
+            for d in raw_detections:
+                x1, y1, x2, y2 = d['box']
+                self._last_detections.append({
+                    'box': [x1/scale, y1/scale, x2/scale, y2/scale],
+                    'conf': d['conf'],
+                    'class_id': d['class_id'],
+                    'class_name': d['class_name']
+                })
+        
+        # Draw the last known detections on the full-resolution frame
+        annotated = draw_detections(img, self._last_detections, self.colors, draw_labels=not vlm_on)
         
         return av.VideoFrame.from_ndarray(annotated, format="bgr24")
 
@@ -337,7 +381,10 @@ with tab3:
             with ctx.video_processor._lock:
                 ctx.video_processor.conf_threshold = conf_threshold
                 ctx.video_processor.enable_vlm = enable_vlm
-                ctx.video_processor.colors = colors  # Keep colors in sync with class names
+                ctx.video_processor.colors = colors
+                ctx.video_processor.skip_factor = skip_factor
+                ctx.video_processor.internal_width = internal_width
+                ctx.video_processor.detector = live_detector # Use the optimized model
 
         st.info("💡 Detection happens live in the stream above. Capture a photo below for Deep Analysis (Gemma-3).")
         
