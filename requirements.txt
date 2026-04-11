@@ -6,3 +6,5 @@ streamlit
 pillow
 requests
 firebase-admin
+streamlit-webrtc
+av
